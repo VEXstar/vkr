@@ -1,5 +1,4 @@
 from PIL import Image
-import PIL
 import io
 from fitz.utils import getColor
 import fitz

@@ -2,8 +2,6 @@ import SimpleITK as sitk
 import numpy as np
 from torch.utils.data import Dataset as BaseDataset
 from torch.utils.data import DataLoader
-from os import listdir
-from os.path import isfile, join
 import os
 import uuid
 import zipfile
