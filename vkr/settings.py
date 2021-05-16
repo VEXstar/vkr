@@ -24,7 +24,7 @@ SECRET_KEY = '%sfgytl1gbhg-6+s&4w3!=5v=%ktk+rd)exh+zjcier2y153nw'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['.vex-core.ru','.dromran.ru','192.168.31.16']
 
 # Application definition
 

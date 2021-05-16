@@ -177,7 +177,7 @@ def interpretate_data(images, raw_data):
             steps = steps + 1
             report_text.append("В базальной области лёгких обнаружены уплотнения с обеих сторон.")
         else:
-            virus = virus + 0.75
+            virus = virus + 0.6
             steps = steps + 1
             report_text.append("В базальной области лёгких обнаружены уплотнения с одной стороны.")
         prepare_obj = {'desc': "Базальная область", "slices": []}
@@ -204,14 +204,13 @@ def interpretate_data(images, raw_data):
         steps = steps + 1
         report_text.append("Уплотнения расположены во всех отделах лёгих с обеих сторон.")
     elif smooth_diff > 0.1:
-        virus = virus + 0.4
+        virus = virus + 0.5
         steps = steps + 1
         report_text.append("Уплотнения локализуются с обеих сторон.")
     elif smooth_diff <= 0.1:
         virus = virus + 0.2
         steps = steps + 1
         report_text.append("Уплотнения приемущественно односторонние.")
-    #root_lung = (max(raw_data['dir']['lobe_conatins_seal'][bazal[0]]) + max(raw_data['dir']['lobe_conatins_seal'][bazal[1]]))/2
     other_lobes = []
     for cli in raw_data['lobe_conatins_seal']:
         if cli in bazal:
@@ -228,18 +227,22 @@ def interpretate_data(images, raw_data):
         in_b_r = im_ind in raw_data['lobe_conatins_seal'][bazal[1]]
         if im_ind not in other_lobes and not in_b_l and not in_b_r:
             prepare_obj['slices'].append({'numb': str(im_ind + 1) + '/' + str(total_len), 'img': images[im_ind]})
-    formed_imgs.append(prepare_obj)
+    if len(prepare_obj['slices']) !=0:
+        formed_imgs.append(prepare_obj)
     if raw_data['warn_small_mask']:
-        warns.append("Размер уплотнений аномально малый, возможно лёгкие являются здоровыми.")
+        warns.append("Размер уплотнений аномально малый, возможно найденные уплотнения таковыми не явлюятся.")
 
-    virus = virus/steps
-    bacterial = 1 - virus
-    if bacterial > virus:
-        report_text.append("Вердикт: более вероятна бактериальная пневмония.")
+    if steps == 0:
+        report_text.append("Вывод: уплотнения не были найдены или не удалось распознать положение лёгких.")
     else:
-        report_text.append("Вердикт: более вероятна вирусная пневмония.")
-    report_text.append("Процентное соотнощение принадлежности к классам:")
-    report_text.append('бактериальная - ' + str(round(bacterial*100, 1)) + " вирусная - " + str(round(virus*100, 1)))
+        virus = virus/steps
+        bacterial = 1 - virus
+        if bacterial > virus:
+            report_text.append("Вывод: более вероятна бактериальная пневмония.")
+        else:
+            report_text.append("Вывод: более вероятна вирусная пневмония.")
+        report_text.append("Процентное соотнощение принадлежности к классам:")
+        report_text.append('бактериальная - ' + str(round(bacterial*100, 1)) + " вирусная - " + str(round(virus*100, 1)))
     if len(warns) > 0:
         report_text.append("ПРЕДУПРЕЖДЕНИЯ:")
         report_text.extend(warns)

@@ -20,6 +20,6 @@ from vkr import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', views.index, name='index'),
+    path('back/', views.index, name='index'),
    # path('test/', views.test, name='test'),
 ]

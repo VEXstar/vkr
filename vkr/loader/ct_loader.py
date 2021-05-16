@@ -96,9 +96,9 @@ def get_dataloader(path, is_dir):
     original_slices = []
     sitk_obj = None
     if is_dir:
-        original_slices,sitk_obj = load_as_dir(path)
+        original_slices, sitk_obj = load_as_dir(path)
     else:
-        original_slices,sitk_obj = load_as_file(path)
+        original_slices, sitk_obj = load_as_file(path)
     user_dataset = Dataset(images=original_slices, sitk_image=sitk_obj)
     user_dataloader = DataLoader(user_dataset, batch_size=5, shuffle=False)
     if is_dir:
