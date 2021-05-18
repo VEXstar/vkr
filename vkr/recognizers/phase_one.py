@@ -4,7 +4,8 @@ import torch.nn.functional as F
 import torch
 import os
 from django.conf import settings
-
+from vkr.loader.ct_loader import SIZE
+from tqdm import tqdm
 
 class UNet(torch__nn.Module):
     def __init__(self):
@@ -100,14 +101,18 @@ class UNet(torch__nn.Module):
 mode = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 model = UNet()
-model.load_state_dict(torch.load(os.path.join(settings.BASE_DIR, 'content/prod_model.pt'), map_location=mode))
+model.load_state_dict(torch.load(os.path.join(settings.BASE_DIR, 'content/prod_model_'+str(SIZE)+'.pt'), map_location=mode))
 model.to(mode)
 model.eval()
 
 
 def predict(data):
     predicted_mask = []
-    for (norm, real) in data:
+    t = tqdm(data, desc='Phase one')
+    if not torch.cuda.is_available():
+        print("GPU not found, using CPU")
+    for (norm, real) in t:
+
         pred_batch = model(norm.to(mode)) > 0.5
         for mask in pred_batch:
             predicted_mask.append(mask.numpy())

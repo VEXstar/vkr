@@ -7,6 +7,7 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate
+from vkr.loader.ct_loader import SIZE
 
 blue = getColor("blue")
 black = getColor("black")
@@ -77,7 +78,7 @@ def report_generator(text=None, images=None, times=None, f_name='test.zip'):
     pos_x = 36
     pos_y = 60
     for zone in images:
-        if cur_page.rect.height <= pos_y + 36 + 160:
+        if cur_page.rect.height <= pos_y + 36 + SIZE:
             cur_writer.append(pos=fitz.Point(550, 800), text=str(page), language='ru', fontsize=12)
             cur_page.writeText(writers=cur_writer)
             doc.insertPage(pno=page)
@@ -92,8 +93,8 @@ def report_generator(text=None, images=None, times=None, f_name='test.zip'):
         cur_writer.append(pos=fitz.Point(pos_x, pos_y), text=zone['desc'], language='ru', fontsize=14)
         pos_y = pos_y + 14
         for img in zone['slices']:
-            if cur_page.rect.width <= pos_x + 165:
-                if cur_page.rect.height <= pos_y + 24 * 2 + 160 * 2:
+            if cur_page.rect.width <= pos_x + SIZE + 5:
+                if cur_page.rect.height <= pos_y + 24 * 2 + SIZE * 2:
                     cur_writer.append(pos=fitz.Point(550, 800), text=str(page), language='ru', fontsize=12)
                     cur_page.writeText(writers=cur_writer)
                     doc.insertPage(pno=page)
@@ -108,14 +109,14 @@ def report_generator(text=None, images=None, times=None, f_name='test.zip'):
                     cur_writer.append(pos=fitz.Point(pos_x, pos_y), text=zone['desc'], language='ru', fontsize=14)
                     pos_y = pos_y + 14
                 else:
-                    pos_y = pos_y + 16 + 160
+                    pos_y = pos_y + 16 + SIZE
                     pos_x = 36
             cur_writer.append(pos=fitz.Point(pos_x, pos_y), text=img['numb'], language='ru', fontsize=12)
-            cur_page.insertImage(rect=fitz.Rect(pos_x, pos_y + 4, pos_x + 160, pos_y + 160 + 4),
+            cur_page.insertImage(rect=fitz.Rect(pos_x, pos_y + 4, pos_x + SIZE, pos_y + SIZE + 4),
                                  stream=image_to_stream(img['img']))
-            pos_x = pos_x + 165
+            pos_x = pos_x + SIZE + 5
         pos_x = 36
-        pos_y = pos_y + 24 + 160
+        pos_y = pos_y + 24 + SIZE
     cur_writer.append(pos=fitz.Point(550, 800), text=str(page), language='ru', fontsize=12)
     cur_page.writeText(writers=cur_writer)
 

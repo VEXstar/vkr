@@ -9,7 +9,8 @@ from django.conf import settings
 import cv2
 import shutil
 
-SIZE = 160
+#SIZE = 160
+SIZE = 256
 
 
 def resize_image(img, size):

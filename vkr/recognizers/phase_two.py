@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from lungmask import mask
+from vkr.loader.ct_loader import SIZE
 
 model = mask.get_model('unet', 'LTRCLobes')
 
@@ -27,7 +28,7 @@ def get_lobes(sitk_obj, resize_fn):
     kernel = np.ones((2, 2), np.uint8)
     for i in range(len(segmentation)):
         resized = resize_fn(segmentation[i])
-        cleared = np.zeros(shape=(160, 160))
+        cleared = np.zeros(shape=(SIZE, SIZE))
         for cl in classes:
             binar = 1 * (resized == cl)
             opening = cv2.morphologyEx(np.array(binar, dtype=np.uint8), cv2.MORPH_OPEN, kernel)
@@ -229,7 +230,7 @@ def interpretate_data(images, raw_data):
             prepare_obj['slices'].append({'numb': str(im_ind + 1) + '/' + str(total_len), 'img': images[im_ind]})
     if len(prepare_obj['slices']) !=0:
         formed_imgs.append(prepare_obj)
-    if raw_data['warn_small_mask']:
+    if raw_data['warn_small_mask'] or norm_precent < 2:
         warns.append("Размер уплотнений аномально малый, возможно найденные уплотнения таковыми не явлюятся.")
 
     if steps == 0:
