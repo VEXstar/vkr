@@ -115,5 +115,6 @@ def predict(data):
 
         pred_batch = model(norm.to(mode)) > 0.5
         for mask in pred_batch:
-            predicted_mask.append(mask.numpy())
+            predicted_mask.append(mask.cpu().numpy())
+    torch.cuda.empty_cache()
     return predicted_mask

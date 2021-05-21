@@ -13,12 +13,12 @@ def thread_worker(path, is_dir, f_name, mail):
     print("for user " + str(mail) + " loaded " + str(len(dataset)) + " batches")
     masks = po.predict(data_loader)
     print("for user " + str(mail) + " complete prediction, total masks: " + str(len(masks)))
-    text, images = pt.predict(data_loader, dataset, masks)
+    result = pt.predict(dataset, masks)
     times = {
         'start': time_start,
         'end': datetime.datetime.now()
     }
-    send_report(times, images, text, mail, file_name)
+    send_report(times, result, mail, file_name)
     print("for user " + str(mail) + " generated and sent report")
 
 

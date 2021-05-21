@@ -9,7 +9,7 @@ from django.conf import settings
 import cv2
 import shutil
 
-#SIZE = 160
+# SIZE = 160
 SIZE = 256
 
 
@@ -55,6 +55,12 @@ class Dataset(BaseDataset):
     def resize_image(img):
         return resize_image(img, SIZE)
 
+    def numpy(self):
+        prepared = []
+        for img in self.images:
+            prepared.append(resize_image(img, SIZE))
+        return np.array(prepared)
+
     def get_sitk_object(self):
         return self.ct_obj
 
@@ -90,7 +96,7 @@ def load_as_dir(dir_path):
 
 def load_as_file(file_path):
     input_image = sitk.ReadImage(file_path)
-    return sitk.GetArrayFromImage(input_image),input_image
+    return sitk.GetArrayFromImage(input_image), input_image
 
 
 def get_dataloader(path, is_dir):
