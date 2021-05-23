@@ -1,7 +1,9 @@
 import cv2
 import numpy as np
+from torch.utils.data import DataLoader
 from lungmask import mask
 from vkr.loader.ct_loader import SIZE
+import SimpleITK as sitk
 
 model = mask.get_model('unet', 'LTRCLobes')
 
@@ -27,6 +29,8 @@ class LungMaskInfo:
         return self.label_direction() + " " + self.label
 
     def label_direction(self):
+        if self.dir == 0:
+            return ''
         if self.dir < 0:
             return 'левая'
         return 'правая'
@@ -39,16 +43,26 @@ lung_mask_infos = {5: LungMaskInfo(5, "базальная", 1),
                    2: LungMaskInfo(2, "базальная", -1),
                    1: LungMaskInfo(1, "передняя область", -1),
                    3: LungMaskInfo(3, "передняя область", 1),
-                   4: LungMaskInfo(4, 'передняя область 2', 1)
+                   4: LungMaskInfo(4, 'передняя область 2', 1),
+                   0: LungMaskInfo(0, 'Не удалось определить область', 0)
                    }
 
 
-def get_lobes(sitk_obj, resize_fn):
-    segmentation = mask.apply(sitk_obj, model, batch_size=5)
+def get_lobes(dataset):
+    not_hu = not dataset.is_hu()
+    segmentation = []
+    if not_hu:
+        for (n, r) in DataLoader(dataset, batch_size=1):
+            r_np = np.array(r)[0]
+            image_rgb = sitk.GetImageFromArray(r_np)
+            segmentation.append(mask.apply(image_rgb, model, batch_size=5, noHU=True)[0])
+        segmentation = np.asarray(segmentation)
+    else:
+        segmentation = mask.apply(dataset.ct_obj, model, batch_size=5)
     classes = np.flip(np.delete(np.unique(segmentation), 0))
     f = []
     for i in range(len(segmentation)):
-        f.append(resize_fn(segmentation[i]))
+        f.append(dataset.resize_image(segmentation[i]))
     segmentation = f
     diff = 0
     start_lung = None
@@ -129,32 +143,32 @@ def prepare_data(lung_mask, seal_mask):
 
             if i >= lung_start + part_step * 2:
                 if lobe_info.label_short_direction() == 'l':
-                    result['up_masked'][i][0][0] = and_mask
-                    result['up_masked'][i][0][1] = bin_lobe
+                    result['up_masked'][i][0][0] += and_mask
+                    result['up_masked'][i][0][1] += bin_lobe
                 else:
-                    result['up_masked'][i][1][0] = and_mask
-                    result['up_masked'][i][1][1] = bin_lobe
+                    result['up_masked'][i][1][0] += and_mask
+                    result['up_masked'][i][1][1] += bin_lobe
             elif i >= lung_start + part_step:
                 if lobe_info.label_short_direction() == 'l':
-                    result['centre_masked'][i][0][0] = and_mask
-                    result['centre_masked'][i][0][1] = bin_lobe
+                    result['centre_masked'][i][0][0] += and_mask
+                    result['centre_masked'][i][0][1] += bin_lobe
                 else:
                     result['centre_masked'][i][1][0] += and_mask
                     result['centre_masked'][i][1][1] += bin_lobe
             else:
                 if lobe_info.label_short_direction() == 'l':
-                    result['down_masked'][i][0][0] = and_mask
-                    result['down_masked'][i][0][1] = bin_lobe
+                    result['down_masked'][i][0][0] += and_mask
+                    result['down_masked'][i][0][1] += bin_lobe
                 else:
-                    result['down_masked'][1][0] = and_mask
-                    result['down_masked'][1][1] = bin_lobe
+                    result['down_masked'][1][0] += and_mask
+                    result['down_masked'][1][1] += bin_lobe
     for i in range(1, len(common_vol)):
         result[i] = (result[i] + 1e-20) / (common_vol[i] + 1e-20)
     temp_l = (result['left_attacked'] + 1e-20) / (common_lr_vol[0] + 1e-20)
     result['left_attacked'] = temp_l if temp_l != 1 else 0
     temp_r = (result['right_attacked'] + 1e-20) / (common_lr_vol[1] + 1e-20)
     result['right_attacked'] = temp_r if temp_r != 1 else 0
-    result['common_attacked'] = (result['left_attacked'] + result['right_attacked']) / 2
+    result['common_attacked'] = (result['left_attacked'] + result['right_attacked'])/2
     return result
 
 
@@ -202,13 +216,10 @@ def interpreter(pre_analyzed_data):
     c_r = data['right_attacked']
     if c_l < 0.01 and c_r < 0.01:
         report_text.append("Процент поражения лёгких менее 1%, определить тип пневмонии невозможно.")
+        if pre_analyzed_data[0] > 0.1:
+            report_text.append("Найдено множество уплотнений за пределами лёгких, возможно,\n"
+                               " лёгкие сегментированы неверно.")
         return "\n".join(report_text)
-    c_p = min(c_l, c_r) / max(c_l, c_r)
-    if data['common_attacked'] < 0.05:
-        warns.append("Поражено менее 5% лёгких, возможно, выделенные уплотнения таковыми не являются.")
-    if data['warn_small']:
-        warns.append(
-            "Размеры уплотнений относительно небольшие, возможно,\n выделенные уплотнения таковыми не являются.")
 
     down_def = defusion_find(data['down_masked'])
     centre_def = defusion_find(data['centre_masked'])
@@ -222,10 +233,17 @@ def interpreter(pre_analyzed_data):
     if down_def:
         report_text.append("В верхних отделах наблюдаются диффузная локализация уплотнений.")
 
+    c_p = min(c_l, c_r) / max(c_l, c_r)
+    if data['common_attacked'] < 0.05:
+        warns.append("Поражено менее 5% лёгких, возможно, выделенные уплотнения таковыми не являются.")
+    if data['warn_small']:
+        warns.append(
+            "Размеры уплотнений относительно небольшие, возможно,\n выделенные уплотнения таковыми не являются.")
+
     if c_p > 0.2 and count_def >= 2:
         report_text.append("Поражения преимущественно двухсторонние, локализация диффузная.")
-        viral += 0.8
-        bacterial += 0.2
+        viral += 0.9
+        bacterial += 0.1
     elif c_p < 0.2 and count_def >= 2:
         report_text.append("Поражения преимущественно односторонние, локализация диффузная.")
         viral += 0.6
@@ -287,8 +305,8 @@ def interpreter(pre_analyzed_data):
         step += 1
     elif not is_zero and centre_count / (down_count + up_count / 2) > 0.4 and count_def > 1:
         report_text.append("Уплотнения локализуются преимущественно в средних отделах, локализация диффузная.")
-        viral += 0.6
-        bacterial += 0.4
+        viral += 0.3
+        bacterial += 0.7
         step += 1
     viral = viral / step
     bacterial = bacterial / step
@@ -330,7 +348,7 @@ def mask_concatinator(lung_mask, seal_mask, real_images):
 
 
 def predict(dataset, masks):
-    lobes_mask = get_lobes(dataset.ct_obj, dataset.resize_image)
+    lobes_mask = get_lobes(dataset)
     images_raw = mask_concatinator(lobes_mask['masks'], masks, dataset.numpy())
     raw_info = prepare_data(lobes_mask, masks)
     text = interpreter(raw_info)

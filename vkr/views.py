@@ -7,7 +7,7 @@ def index(request):
         if 'mail' not in request.POST:
             return HttpResponse("{\"status\":\"mail not found\"}")
         if len(request.FILES) > 0:
-            if 'ct_file' not in request.POST:
+            if 'ct_file' not in request.FILES:
                 return HttpResponse("{\"status\":\"ct_file not found\"}")
             f = request.FILES['ct_file']
             do_work_user_ct(f, request.POST['mail'])

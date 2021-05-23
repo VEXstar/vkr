@@ -7,11 +7,12 @@ from django.conf import settings
 from vkr.loader.ct_loader import SIZE
 from tqdm import tqdm
 
+
 class UNet(torch__nn.Module):
     def __init__(self):
         super().__init__()
 
-        prob = 0.6
+        prob = 0
         self.drop = nn.Dropout(prob)
 
         # encoder (downsampling)
@@ -25,7 +26,7 @@ class UNet(torch__nn.Module):
         self.batch_norm_1_1 = nn.BatchNorm2d(128)
         self.enc_conv_1_2 = nn.Conv2d(128, 128, 3, 1, 1)
         self.batch_norm_1_2 = nn.BatchNorm2d(128)
-        self.pool_1 =  nn.MaxPool2d(2,2) # 128 -> 64
+        self.pool_1 = nn.MaxPool2d(2, 2)  # 128 -> 64
 
         self.enc_conv_2_1 = nn.Conv2d(128, 256, 3, 1, 1)
         self.batch_norm_2_1 = nn.BatchNorm2d(256)
@@ -37,7 +38,7 @@ class UNet(torch__nn.Module):
         self.batch_norm_3_1 = nn.BatchNorm2d(512)
         self.enc_conv_3_2 = nn.Conv2d(512, 512, 3, 1, 1)
         self.batch_norm_3_2 = nn.BatchNorm2d(512)
-        self.pool_3 =  nn.MaxPool2d(2, 2) # 32 -> 16
+        self.pool_3 = nn.MaxPool2d(2, 2)  # 32 -> 16
 
         # bottleneck
         self.bottleneck_conv_1 = nn.Conv2d(512, 1024, 3, 1, 1)
@@ -46,30 +47,30 @@ class UNet(torch__nn.Module):
         self.bottleneck_batch_norm_2 = nn.BatchNorm2d(512)
 
         # decoder (upsampling)
-        self.upsample_0 = nn.Upsample(scale_factor=2, mode='nearest') # 16 -> 32
-        self.dec_conv_0_1 =  nn.Conv2d(1024,512,3,1,1)
+        self.upsample_0 = nn.Upsample(scale_factor=2, mode='nearest')  # 16 -> 32
+        self.dec_conv_0_1 = nn.Conv2d(1024, 512, 3, 1, 1)
         self.batch_norm_4_1 = nn.BatchNorm2d(512)
         self.dec_conv_0_2 = nn.Conv2d(512, 256, 3, 1, 1)
         self.batch_norm_4_2 = nn.BatchNorm2d(256)
 
-        self.upsample_1 = nn.Upsample(scale_factor=2, mode='nearest') # 32 -> 64
-        self.dec_conv_1_1 = nn.Conv2d(512,256,3,1,1)
+        self.upsample_1 = nn.Upsample(scale_factor=2, mode='nearest')  # 32 -> 64
+        self.dec_conv_1_1 = nn.Conv2d(512, 256, 3, 1, 1)
         self.batch_norm_5_1 = nn.BatchNorm2d(256)
         self.dec_conv_1_2 = nn.Conv2d(256, 128, 3, 1, 1)
         self.batch_norm_5_2 = nn.BatchNorm2d(128)
 
-        self.upsample_2 = nn.Upsample(scale_factor=2, mode='nearest') # 64 -> 128
-        self.dec_conv_2_1 = nn.Conv2d(256,128,3,1,1)
+        self.upsample_2 = nn.Upsample(scale_factor=2, mode='nearest')  # 64 -> 128
+        self.dec_conv_2_1 = nn.Conv2d(256, 128, 3, 1, 1)
         self.batch_norm_6_1 = nn.BatchNorm2d(128)
         self.dec_conv_2_2 = nn.Conv2d(128, 64, 3, 1, 1)
         self.batch_norm_6_2 = nn.BatchNorm2d(64)
 
-        self.upsample_3 =  nn.Upsample(scale_factor=2, mode='nearest') # 128 -> 256
-        self.dec_conv_3_1 = nn.Conv2d(128,64,3,1,1)
+        self.upsample_3 = nn.Upsample(scale_factor=2, mode='nearest')  # 128 -> 256
+        self.dec_conv_3_1 = nn.Conv2d(128, 64, 3, 1, 1)
         self.batch_norm_7_1 = nn.BatchNorm2d(64)
         self.dec_conv_3_2 = nn.Conv2d(64, 64, 3, 1, 1)
         self.batch_norm_7_2 = nn.BatchNorm2d(64)
-        self.dec_conv_3_3 = nn.Conv2d(64, 1, 3, 1, 1) # по схеме выход должен быть равен 2 + 1*1, а не 3*3
+        self.dec_conv_3_3 = nn.Conv2d(64, 1, 3, 1, 1)  # по схеме выход должен быть равен 2 + 1*1, а не 3*3
 
     def forward(self, x):
         # encoder
@@ -83,25 +84,26 @@ class UNet(torch__nn.Module):
         e3_p = self.drop(self.pool_3(e3))
 
         # bottleneck
-        b =  F.relu(self.bottleneck_batch_norm_2(self.bottleneck_conv_2(
+        b = F.relu(self.bottleneck_batch_norm_2(self.bottleneck_conv_2(
             F.relu(self.bottleneck_batch_norm_1(self.bottleneck_conv_1(e3_p))))))
 
         # decoder
         d0 = F.relu(self.batch_norm_4_2(self.dec_conv_0_2(F.relu(
-            self.batch_norm_4_1(self.dec_conv_0_1(torch.cat([self.upsample_0(b), e3],1)))))))
+            self.batch_norm_4_1(self.dec_conv_0_1(torch.cat([self.upsample_0(b), e3], 1)))))))
         d1 = F.relu(self.batch_norm_5_2(self.dec_conv_1_2(F.relu(
-            self.batch_norm_5_1(self.dec_conv_1_1(torch.cat([self.upsample_1(d0), e2],1)))))))
+            self.batch_norm_5_1(self.dec_conv_1_1(torch.cat([self.upsample_1(d0), e2], 1)))))))
         d2 = F.relu(self.batch_norm_6_2(self.dec_conv_2_2(F.relu(
-            self.batch_norm_6_1(self.dec_conv_2_1(torch.cat([self.upsample_2(d1), e1],1)))))))
+            self.batch_norm_6_1(self.dec_conv_2_1(torch.cat([self.upsample_2(d1), e1], 1)))))))
         d3 = F.sigmoid(self.dec_conv_3_3(F.relu(self.batch_norm_7_2(self.dec_conv_3_2(F.relu(
-            self.batch_norm_7_1(self.dec_conv_3_1(torch.cat([self.upsample_3(d2), e0],1)))))))))
+            self.batch_norm_7_1(self.dec_conv_3_1(torch.cat([self.upsample_3(d2), e0], 1)))))))))
         return d3
 
 
 mode = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 model = UNet()
-model.load_state_dict(torch.load(os.path.join(settings.BASE_DIR, 'content/prod_model_'+str(SIZE)+'.pt'), map_location=mode))
+model.load_state_dict(
+    torch.load(os.path.join(settings.BASE_DIR, 'content/prod_model_' + str(SIZE) + '.pt'), map_location=mode))
 model.to(mode)
 model.eval()
 

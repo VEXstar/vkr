@@ -24,23 +24,34 @@ class Dataset(BaseDataset):
     def __init__(
             self,
             images,
-            sitk_image
+            sitk_image,
+            is_hu
     ):
         self.images = images
         self.ct_obj = sitk_image
+        self.hu = is_hu
 
     def __getitem__(self, i):
         # read data
         real_image = self.images[i]
+        try_real = np.array(real_image)
 
         check = np.array(real_image)
+        self.is_RGB = False
         if len(check.shape) > 2:
+            is_rgb = False
             drop_index = -1
             for i in range(len(check.shape)):
-                if check.shape[i] == 1:
+                if check.shape[i] == 1 or check.shape[i] == 3:
                     drop_index = i
+                    if check.shape[i] == 3:
+                        is_rgb = True
                     break
-            real_image = check.squeeze(drop_index)
+            if is_rgb:
+                real_image = cv2.cvtColor(check, cv2.COLOR_RGB2GRAY)
+                self.is_RGB = True
+            else:
+                real_image = check.squeeze(drop_index)
 
         image = resize_image(real_image, SIZE)
         image = cv2.normalize(image, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
@@ -49,7 +60,7 @@ class Dataset(BaseDataset):
 
         image = np.array(image, np.float32)
 
-        return image, real_image
+        return image, try_real
 
     @staticmethod
     def resize_image(img):
@@ -58,8 +69,14 @@ class Dataset(BaseDataset):
     def numpy(self):
         prepared = []
         for img in self.images:
-            prepared.append(resize_image(img, SIZE))
+            img = resize_image(img, SIZE)
+            if self.is_RGB:
+                img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+            prepared.append(img)
         return np.array(prepared)
+
+    def is_hu(self):
+        return self.hu
 
     def get_sitk_object(self):
         return self.ct_obj
@@ -106,7 +123,10 @@ def get_dataloader(path, is_dir):
         original_slices, sitk_obj = load_as_dir(path)
     else:
         original_slices, sitk_obj = load_as_file(path)
-    user_dataset = Dataset(images=original_slices, sitk_image=sitk_obj)
+    hu = True
+    if np.all(original_slices >= 0) and np.all(original_slices <= 256):
+        hu = False
+    user_dataset = Dataset(images=original_slices, sitk_image=sitk_obj, is_hu=hu)
     user_dataloader = DataLoader(user_dataset, batch_size=5, shuffle=False)
     if is_dir:
         shutil.rmtree(path)
