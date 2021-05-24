@@ -8,22 +8,24 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate
 from vkr.loader.ct_loader import SIZE
+from vkr.settings import MAIL, SMTP_SERVER, MAIL_PSWD
+import datetime
 
 blue = getColor("blue")
 black = getColor("black")
 
 
 def send_mail(target, text, result):
-    mail = "vkr_mail@vex-core.ru"
-    server = smtplib.SMTP("smtp.yandex.ru", 587)
+    mail = MAIL
+    server = smtplib.SMTP(SMTP_SERVER, 587)
     server.ehlo()
     server.starttls()
-    server.login(mail, "g34o8ugh2iog4iu")
+    server.login(mail, MAIL_PSWD)
     msg = MIMEMultipart()
     msg['From'] = mail
     msg['To'] = target
     msg['Date'] = formatdate(localtime=True)
-    msg['Subject'] = "Результат анализа КТ-снимка"
+    msg['Subject'] = "Результат анализа КТ-снимка от " + str(datetime.datetime.now().strftime('%H:%M %d.%m.%Y'))
     msg.attach(MIMEText(text))
 
     byte_file = result.convert_to_pdf()
@@ -65,7 +67,8 @@ def report_generator(data=None, times=None, f_name='test.zip'):
     page = 1
     last_pos += 45
     report_text.append(pos=fitz.Point(550, 800), text=str(page), language='ru', fontsize=12)
-    report_text.append(pos=fitz.Point(36, last_pos), text="Соответствие цвета выделения  уплотнения и области лёгкого:",
+    report_text.append(pos=fitz.Point(36, last_pos),
+                       text="Соответствие цвета выделенного  уплотнения и области лёгкого:",
                        fontsize=12)
     last_pos += 15
     writers = [report_text]
@@ -80,7 +83,7 @@ def report_generator(data=None, times=None, f_name='test.zip'):
     doc.insertPage(pno=page)
     cur_page = doc[-1]
     cur_writer = fitz.TextWriter(cur_page.rect, color=black)
-    cur_writer.append(pos=fitz.Point(36, 32), text="Перечень слайсов с найденными уплотнениями", language='ru',
+    cur_writer.append(pos=fitz.Point(36, 32), text="Перечень срезов с найденными уплотнениями", language='ru',
                       fontsize=14)
     cur_page.drawLine(fitz.Point(36, 40), fitz.Point(550, 40), color=blue)
 
@@ -101,7 +104,7 @@ def report_generator(data=None, times=None, f_name='test.zip'):
             cur_writer = fitz.TextWriter(cur_page.rect, color=black)
             pos_x = 36
             pos_y = 60
-            cur_writer.append(pos=fitz.Point(36, 32), text="Перечень слайсов с найденными уплотнениями", language='ru',
+            cur_writer.append(pos=fitz.Point(36, 32), text="Перечень срезов с найденными уплотнениями", language='ru',
                               fontsize=14)
             cur_page.drawLine(fitz.Point(36, 40), fitz.Point(550, 40), color=blue)
         if cur_page.rect.width <= pos_x + SIZE + 5:
@@ -114,7 +117,7 @@ def report_generator(data=None, times=None, f_name='test.zip'):
                 cur_writer = fitz.TextWriter(cur_page.rect, color=black)
                 pos_x = 36
                 pos_y = 60
-                cur_writer.append(pos=fitz.Point(36, 32), text="Перечень слайсов с найденными уплотнениями",
+                cur_writer.append(pos=fitz.Point(36, 32), text="Перечень срезов с найденными уплотнениями",
                                   language='ru', fontsize=14)
                 cur_page.drawLine(fitz.Point(36, 40), fitz.Point(550, 40), color=blue)
             else:

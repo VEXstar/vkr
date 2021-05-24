@@ -7,7 +7,7 @@ import SimpleITK as sitk
 
 model = mask.get_model('unet', 'LTRCLobes')
 
-rgb_const = [(255, 0, 0), (0, 255, 0), (0, 217, 255), (238, 255, 0), (238, 255, 0), (183, 0, 255)]
+rgb_const = [(255, 0, 0), (0, 255, 0), (0, 217, 255), (255, 153, 0), (255, 153, 0), (183, 0, 255)]
 
 
 class LungMaskInfo:
@@ -32,8 +32,8 @@ class LungMaskInfo:
         if self.dir == 0:
             return ''
         if self.dir < 0:
-            return 'левая'
-        return 'правая'
+            return 'Левая'
+        return 'Правая'
 
     def get_label(self):
         return self.label
@@ -41,9 +41,9 @@ class LungMaskInfo:
 
 lung_mask_infos = {5: LungMaskInfo(5, "базальная", 1),
                    2: LungMaskInfo(2, "базальная", -1),
-                   1: LungMaskInfo(1, "передняя область", -1),
-                   3: LungMaskInfo(3, "передняя область", 1),
-                   4: LungMaskInfo(4, 'передняя область 2', 1),
+                   1: LungMaskInfo(1, "средняя и верхняя доли", -1),
+                   3: LungMaskInfo(3, "средняя и верхняя доли", 1),
+                   4: LungMaskInfo(4, 'средняя и верхняя доли 2', 1),
                    0: LungMaskInfo(0, 'Не удалось определить область', 0)
                    }
 
@@ -162,13 +162,16 @@ def prepare_data(lung_mask, seal_mask):
                 else:
                     result['down_masked'][1][0] += and_mask
                     result['down_masked'][1][1] += bin_lobe
+    losses_volume = result[0]
+    common_volume = 1e-20
     for i in range(1, len(common_vol)):
         result[i] = (result[i] + 1e-20) / (common_vol[i] + 1e-20)
+        common_volume += common_vol[i]
     temp_l = (result['left_attacked'] + 1e-20) / (common_lr_vol[0] + 1e-20)
     result['left_attacked'] = temp_l if temp_l != 1 else 0
     temp_r = (result['right_attacked'] + 1e-20) / (common_lr_vol[1] + 1e-20)
     result['right_attacked'] = temp_r if temp_r != 1 else 0
-    result['common_attacked'] = (result['left_attacked'] + result['right_attacked'])/2
+    result['common_attacked'] = (result['left_attacked'] + result['right_attacked'])/2 + losses_volume/common_volume
     return result
 
 

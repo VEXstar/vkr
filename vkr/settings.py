@@ -26,6 +26,14 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['.vex-core.ru', '.dromran.ru', '192.168.31.16', '0.0.0.0', '127.0.0.1']
 
+IMG_SIZE = 256
+PATH_TO_MODEL = 'xnet_256.pt'
+TYPE_MODEL = 'xnet'
+
+MAIL = "vkr_mail@vex-core.ru"
+MAIL_PSWD = "g34o8ugh2iog4iu"
+SMTP_SERVER = "smtp.yandex.ru"
+
 # Application definition
 
 INSTALLED_APPS = [

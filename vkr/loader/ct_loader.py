@@ -8,9 +8,10 @@ import zipfile
 from django.conf import settings
 import cv2
 import shutil
+from vkr.settings import IMG_SIZE
 
 # SIZE = 160
-SIZE = 256
+SIZE = IMG_SIZE
 
 
 def resize_image(img, size):
