@@ -26,14 +26,14 @@ class LungMaskInfo:
         return self.color
 
     def get_full_label(self):
-        return self.label_direction() + " " + self.label
+        return self.label_direction() + self.label
 
     def label_direction(self):
         if self.dir == 0:
             return ''
         if self.dir < 0:
-            return 'Левая'
-        return 'Правая'
+            return 'Левая '
+        return 'Правая '
 
     def get_label(self):
         return self.label
@@ -93,7 +93,6 @@ def prepare_data(lung_mask, seal_mask):
     seal_mask = np.array(seal_mask)
     classes = np.unique(lung_mask)
     common_vol = np.zeros(6)
-    common_lr_vol = np.zeros(2)
     result = {
         0: 0,
         1: 0,
@@ -124,8 +123,8 @@ def prepare_data(lung_mask, seal_mask):
 
             mask_vol = np.count_nonzero(and_mask)
             lobe_vol = np.count_nonzero(bin_lobe)
-            if np.count_nonzero(mask_vol) == 0:
-                continue
+            # if np.count_nonzero(mask_vol) == 0:
+            #     continue
             if mask_vol > 32:
                 result['warn_small'] = False
 
@@ -134,44 +133,57 @@ def prepare_data(lung_mask, seal_mask):
 
             lobe_info = lung_mask_infos[cl]
 
-            if lobe_info.label_short_direction() == 'l':
-                result['left_attacked'] += mask_vol
-                common_lr_vol[0] += lobe_vol
-            else:
-                result['right_attacked'] += mask_vol
-                common_lr_vol[1] += lobe_vol
-
             if i >= lung_start + part_step * 2:
                 if lobe_info.label_short_direction() == 'l':
                     result['up_masked'][i][0][0] += and_mask
-                    result['up_masked'][i][0][1] += bin_lobe
+                    result['up_masked'][i][0][1] = 1 * np.logical_xor(bin_lobe, result['up_masked'][i][0][1])
                 else:
                     result['up_masked'][i][1][0] += and_mask
-                    result['up_masked'][i][1][1] += bin_lobe
+                    result['up_masked'][i][1][1] = 1 * np.logical_xor(bin_lobe, result['up_masked'][i][1][1])
             elif i >= lung_start + part_step:
                 if lobe_info.label_short_direction() == 'l':
                     result['centre_masked'][i][0][0] += and_mask
-                    result['centre_masked'][i][0][1] += bin_lobe
+                    result['centre_masked'][i][0][1] = 1 * np.logical_xor(bin_lobe, result['centre_masked'][i][0][1])
                 else:
                     result['centre_masked'][i][1][0] += and_mask
-                    result['centre_masked'][i][1][1] += bin_lobe
+                    result['centre_masked'][i][1][1] = 1 * np.logical_xor(bin_lobe, result['centre_masked'][i][1][1])
             else:
                 if lobe_info.label_short_direction() == 'l':
                     result['down_masked'][i][0][0] += and_mask
-                    result['down_masked'][i][0][1] += bin_lobe
+                    result['down_masked'][i][0][1] = 1 * np.logical_xor(bin_lobe, result['down_masked'][i][0][1])
                 else:
-                    result['down_masked'][1][0] += and_mask
-                    result['down_masked'][1][1] += bin_lobe
+                    result['down_masked'][i][1][0] += and_mask
+                    result['down_masked'][i][1][1] = 1 * np.logical_xor(bin_lobe, result['down_masked'][i][1][1])
+    left_lung_vol = 0
+    right_lung_vol = 0
+    left_seal_vol = 0
+    right_seal_vol = 0
+    for i in range(max(len(result['down_masked']), len(result['centre_masked']), len(result['up_masked']))):
+        if i < len(result['down_masked']):
+            left_seal_vol += np.count_nonzero(result['down_masked'][i][0][0])
+            left_lung_vol += np.count_nonzero(result['down_masked'][i][0][1])
+            right_seal_vol += np.count_nonzero(result['down_masked'][i][1][0])
+            right_lung_vol += np.count_nonzero(result['down_masked'][i][1][1])
+        if i < len(result['centre_masked']):
+            left_seal_vol += np.count_nonzero(result['centre_masked'][i][0][0])
+            left_lung_vol += np.count_nonzero(result['centre_masked'][i][0][1])
+            right_seal_vol += np.count_nonzero(result['centre_masked'][i][1][0])
+            right_lung_vol += np.count_nonzero(result['centre_masked'][i][1][1])
+        if i < len(result['up_masked']):
+            left_seal_vol += np.count_nonzero(result['up_masked'][i][0][0])
+            left_lung_vol += np.count_nonzero(result['up_masked'][i][0][1])
+            right_seal_vol += np.count_nonzero(result['up_masked'][i][1][0])
+            right_lung_vol += np.count_nonzero(result['up_masked'][i][1][1])
     losses_volume = result[0]
     common_volume = 1e-20
     for i in range(1, len(common_vol)):
         result[i] = (result[i] + 1e-20) / (common_vol[i] + 1e-20)
         common_volume += common_vol[i]
-    temp_l = (result['left_attacked'] + 1e-20) / (common_lr_vol[0] + 1e-20)
+    temp_l = (left_seal_vol + 1e-20) / (left_lung_vol + 1e-20) * 5
     result['left_attacked'] = temp_l if temp_l != 1 else 0
-    temp_r = (result['right_attacked'] + 1e-20) / (common_lr_vol[1] + 1e-20)
+    temp_r = (right_seal_vol + 1e-20) / (right_lung_vol + 1e-20) * 5
     result['right_attacked'] = temp_r if temp_r != 1 else 0
-    result['common_attacked'] = (result['left_attacked'] + result['right_attacked'])/2 + losses_volume/common_volume
+    result['common_attacked'] = (result['left_attacked'] + result['right_attacked']) + losses_volume / common_volume
     return result
 
 
@@ -211,8 +223,8 @@ def interpreter(pre_analyzed_data):
     data = pre_analyzed_data
     step = 0
 
-    report_text.append("Объем поражения левого лёгкого: " + str(normalize_pr(data['left_attacked'])) + '%.')
-    report_text.append("Объем поражения правого лёгкого: " + str(normalize_pr(data['right_attacked'])) + '%.')
+    report_text.append("Объем поражения левого лёгкого (от объема лёгких): " + str(normalize_pr(data['left_attacked'])) + '%.')
+    report_text.append("Объем поражения правого лёгкого (от объема лёгких): " + str(normalize_pr(data['right_attacked'])) + '%.')
     report_text.append("Общий объем поражения (от объема лёгких): " + str(normalize_pr(data['common_attacked'])) + '%.')
 
     c_l = data['left_attacked']
@@ -230,28 +242,28 @@ def interpreter(pre_analyzed_data):
     count_def = np.count_nonzero(1 * np.array([down_def, centre_def, up_def]))
 
     if up_def:
-        report_text.append("В нижних отделах наблюдаются диффузная локализация уплотнений.")
+        report_text.append("В нижних отделах наблюдается диффузная локализация уплотнений.")
     if centre_def:
-        report_text.append("В средних отделах наблюдаются диффузная локализация уплотнений.")
+        report_text.append("В средних отделах наблюдается диффузная локализация уплотнений.")
     if down_def:
-        report_text.append("В верхних отделах наблюдаются диффузная локализация уплотнений.")
+        report_text.append("В верхних отделах наблюдается диффузная локализация уплотнений.")
 
     c_p = min(c_l, c_r) / max(c_l, c_r)
-    if data['common_attacked'] < 0.05:
-        warns.append("Поражено менее 5% лёгких, возможно, выделенные уплотнения таковыми не являются.")
+    if data['common_attacked'] < 0.1:
+        warns.append("Поражено менее 10% лёгких, возможно, выделенные уплотнения таковыми не являются.")
     if data['warn_small']:
         warns.append(
             "Размеры уплотнений относительно небольшие, возможно,\n выделенные уплотнения таковыми не являются.")
 
-    if c_p > 0.2 and count_def >= 2:
+    if c_p > 0.4 and count_def >= 2:
         report_text.append("Поражения преимущественно двухсторонние, локализация диффузная.")
         viral += 0.9
         bacterial += 0.1
-    elif c_p < 0.2 and count_def >= 2:
+    elif c_p <= 0.4 and count_def >= 2:
         report_text.append("Поражения преимущественно односторонние, локализация диффузная.")
         viral += 0.6
         bacterial += 0.4
-    elif c_p > 0.2:
+    elif c_p > 0.4:
         report_text.append("Поражения преимущественно двухсторонние.")
         viral += 0.7
         bacterial += 0.3
@@ -351,10 +363,14 @@ def mask_concatinator(lung_mask, seal_mask, real_images):
 
 
 def predict(dataset, masks):
+    print("segmentation lobes")
     lobes_mask = get_lobes(dataset)
+    print("generate images")
     images_raw = mask_concatinator(lobes_mask['masks'], masks, dataset.numpy())
+    print("prepare data")
     raw_info = prepare_data(lobes_mask, masks)
+    print("interpretate data")
     text = interpreter(raw_info)
-    print(raw_info)
+    # print(raw_info)
     return {'text': text, 'images': images_raw, 'lobes': lung_mask_infos, 'start': lobes_mask['start'],
             'end': lobes_mask['end']}
